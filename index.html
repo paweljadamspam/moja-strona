@@ -3,91 +3,191 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interaktywne Znaki Solana</title>
+<title>Znaki Solana PRO</title>
+
 <style>
-body {margin:0;font-family:Arial,sans-serif;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh}
-.container {display:flex;gap:20px;font-size:48px;cursor:pointer}
-.qr-container {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#1e293b;padding:20px;border-radius:16px;display:none;flex-direction:column;align-items:center}
-.qr-container button {margin-top:10px;padding:8px 12px;border:none;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer}
-.overlay {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#0f172a;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+
+.container{
+  display:flex;
+  gap:60px;
+  font-size:70px;
+}
+
+.char{
+  cursor:pointer;
+  position:relative;
+  transition:transform 0.4s ease,color 0.4s ease;
+}
+
+.char.changed{
+  transform:scale(1.3);
+  color:#22c55e;
+}
+
+.popup{
+  position:absolute;
+  top:90px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#1e293b;
+  padding:15px;
+  border-radius:12px;
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  z-index:10;
+  width:220px;
+}
+
+.popup button{
+  margin-top:10px;
+  padding:6px 10px;
+  border:none;
+  border-radius:6px;
+  background:#6366f1;
+  color:white;
+  cursor:pointer;
+}
+
+.address-text{
+  font-size:11px;
+  margin-top:8px;
+  word-break:break-all;
+  text-align:center;
+  color:#cbd5e1;
+}
 </style>
 </head>
 <body>
 
-<div class="container" id="chars">???</div>
-<div class="overlay" id="overlay"></div>
-<div class="qr-container" id="qrBox">
-  <canvas id="qrcode"></canvas>
-  <button id="copyBtn">Kopiuj adres</button>
+<div class="container">
+  <div class="char" data-index="0">?
+    <div class="popup"></div>
+  </div>
+  <div class="char" data-index="1">?
+    <div class="popup"></div>
+  </div>
+  <div class="char" data-index="2">?
+    <div class="popup"></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <script>
-const charsEl = document.getElementById('chars');
-const overlay = document.getElementById('overlay');
-const qrBox = document.getElementById('qrBox');
-const qrCanvas = document.getElementById('qrcode');
-const copyBtn = document.getElementById('copyBtn');
-
-const addresses = [
-  "BAQL4y1J8hae4UM9asN8a8RtjZsjShG8XXErEFQN9YDu",
-  "58NojM9qwc7F38oYQAZwDUkArioCbSburkZTBJqLWQd7",
-  "FZK29Xj757Z5qPD78gRm7kiZYqyt6szKrSEwdrxwjmPm"
+const addresses=[
+"BAQL4y1J8hae4UM9asN8a8RtjZsjShG8XXErEFQN9YDu",
+"58NojM9qwc7F38oYQAZwDUkArioCbSburkZTBJqLWQd7",
+"FZK29Xj757Z5qPD78gRm7kiZYqyt6szKrSEwdrxwjmPm"
 ];
-const fourthAddress = "H2YZvBUUTnU8bVFR5soC7YaApAeBV5vEaPisrrtzxEvH";
 
-let backendUrl = "https://interaktywny-znaki.onrender.com/usdc/";
-let prevBalances = [0,0,0,0];
-let currentChars = ['?','?','?'];
+const fourthAddress="H2YZvBUUTnU8bVFR5soC7YaApAeBV5vEaPisrrtzxEvH";
 
-// Pokazuje QR i kopiowanie, tylko dla znaku '?'
-function showQR(index) {
-  if (currentChars[index] !== '?') return;
-  new QRCode(qrCanvas, { text: addresses[index], width: 150, height: 150 });
-  copyBtn.onclick = () => navigator.clipboard.writeText(addresses[index]);
-  qrBox.style.display = 'flex';
-  overlay.style.display = 'block';
+let backendUrl="https://interaktywny-znaki.onrender.com/usdc/";
+
+let prevBalances=JSON.parse(localStorage.getItem("balances")) || [0,0,0,0];
+let currentChars=JSON.parse(localStorage.getItem("chars")) || ["?","?","?"];
+
+const chars=document.querySelectorAll(".char");
+
+// ustaw zapisane znaki po reload
+chars.forEach((el,i)=>{
+  el.childNodes[0].nodeValue=currentChars[i];
+  if(currentChars[i]!=="?") el.classList.add("changed");
+});
+
+// popup
+chars.forEach((el,i)=>{
+  const popup=el.querySelector(".popup");
+
+  el.addEventListener("mouseenter",()=>{
+    if(currentChars[i]!=="?") return;
+
+    popup.innerHTML="";
+
+    new QRCode(popup,{
+      text:addresses[i],
+      width:120,
+      height:120
+    });
+
+    const addr=document.createElement("div");
+    addr.className="address-text";
+    addr.textContent=addresses[i];
+    popup.appendChild(addr);
+
+    const btn=document.createElement("button");
+    btn.textContent="Kopiuj adres";
+    btn.onclick=()=>navigator.clipboard.writeText(addresses[i]);
+    popup.appendChild(btn);
+
+    popup.style.display="flex";
+  });
+
+  el.addEventListener("mouseleave",()=>{
+    popup.style.display="none";
+  });
+});
+
+function saveState(){
+  localStorage.setItem("balances",JSON.stringify(prevBalances));
+  localStorage.setItem("chars",JSON.stringify(currentChars));
 }
 
-// Kliknięcie / najechanie
-charsEl.addEventListener('click', e => {
-  const idx = Math.floor(e.offsetX / (charsEl.offsetWidth / 3));
-  showQR(idx);
-});
-charsEl.addEventListener('mouseover', e => {
-  const idx = Math.floor(e.offsetX / (charsEl.offsetWidth / 3));
-  showQR(idx);
-});
+function changeChar(i){
+  currentChars[i]=["w","2","x"][i];
+  chars[i].childNodes[0].nodeValue=currentChars[i];
+  chars[i].classList.add("changed");
+  saveState();
+}
 
-// Zamknięcie QR
-overlay.addEventListener('click', () => {
-  qrBox.style.display = 'none';
-  overlay.style.display = 'none';
-  qrCanvas.innerHTML = '';
-});
+async function updateBalances(){
 
-// Polling salda
-async function updateBalances() {
-  for(let i=0;i<addresses.length;i++){
+  for(let i=0;i<3;i++){
     try{
-      const res = await fetch(backendUrl + (i<3 ? addresses[i] : fourthAddress));
-      const data = await res.json();
-      const balance = data.balance/1000000; // USDC
-      if(i<3 && currentChars[i]==='?' && balance - prevBalances[i] >= 1){
-        currentChars[i] = ['w','2','x'][i];
-      }
-      prevBalances[i] = balance;
-    } catch(e){ console.log(e); }
-  }
+      const res=await fetch(backendUrl+addresses[i]);
+      const data=await res.json();
+      const balance=data.balance/1000000;
 
-  // Jeśli czwarty adres zmienił saldo, wszystkie 3 znaki się zmieniają
-  if(prevBalances[3] > 0){
-    for(let i=0;i<3;i++){
-      if(currentChars[i]==='?') currentChars[i] = ['w','2','x'][i];
+      if(currentChars[i]==="?" && balance-prevBalances[i]>=1){
+        changeChar(i);
+      }
+
+      prevBalances[i]=balance;
+
+    }catch(e){
+      console.log("Błąd:",e);
     }
   }
 
-  charsEl.textContent = currentChars.join('');
+  try{
+    const res=await fetch(backendUrl+fourthAddress);
+    const data=await res.json();
+    const balance=data.balance/1000000;
+
+    if(balance!==prevBalances[3]){
+      for(let i=0;i<3;i++){
+        if(currentChars[i]==="?") changeChar(i);
+      }
+    }
+
+    prevBalances[3]=balance;
+
+  }catch(e){
+    console.log("Błąd 4:",e);
+  }
+
+  saveState();
 }
 
 setInterval(updateBalances,30000);
