@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Znaki Solana PRO</title>
+<title>Znaki Solana FINAL</title>
 
 <style>
 body{
@@ -24,9 +24,9 @@ body{
 }
 
 .char{
-  cursor:pointer;
   position:relative;
-  transition:transform 0.4s ease,color 0.4s ease;
+  cursor:pointer;
+  transition:transform .3s,color .3s;
 }
 
 .char.changed{
@@ -45,7 +45,6 @@ body{
   display:none;
   flex-direction:column;
   align-items:center;
-  z-index:10;
   width:220px;
 }
 
@@ -71,13 +70,13 @@ body{
 <body>
 
 <div class="container">
-  <div class="char" data-index="0">?
+  <div class="char" data-i="0">?
     <div class="popup"></div>
   </div>
-  <div class="char" data-index="1">?
+  <div class="char" data-i="1">?
     <div class="popup"></div>
   </div>
-  <div class="char" data-index="2">?
+  <div class="char" data-i="2">?
     <div class="popup"></div>
   </div>
 </div>
@@ -92,34 +91,33 @@ const addresses=[
 ];
 
 const fourthAddress="H2YZvBUUTnU8bVFR5soC7YaApAeBV5vEaPisrrtzxEvH";
+const backendUrl="https://interaktywny-znaki.onrender.com/usdc/";
 
-let backendUrl="https://interaktywny-znaki.onrender.com/usdc/";
-
-let prevBalances=JSON.parse(localStorage.getItem("balances")) || [0,0,0,0];
-let currentChars=JSON.parse(localStorage.getItem("chars")) || ["?","?","?"];
+let baseline = JSON.parse(localStorage.getItem("baseline"));
+let unlocked = JSON.parse(localStorage.getItem("unlocked")) || [false,false,false];
 
 const chars=document.querySelectorAll(".char");
 
-// ustaw zapisane znaki po reload
+// ustaw zapisane znaki
 chars.forEach((el,i)=>{
-  el.childNodes[0].nodeValue=currentChars[i];
-  if(currentChars[i]!=="?") el.classList.add("changed");
+  if(unlocked[i]){
+    el.childNodes[0].nodeValue=["w","2","x"][i];
+    el.classList.add("changed");
+  }
 });
 
-// popup
+// popup stabilny
 chars.forEach((el,i)=>{
   const popup=el.querySelector(".popup");
+  let hideTimeout;
 
   el.addEventListener("mouseenter",()=>{
-    if(currentChars[i]!=="?") return;
+    if(unlocked[i]) return;
 
+    clearTimeout(hideTimeout);
     popup.innerHTML="";
 
-    new QRCode(popup,{
-      text:addresses[i],
-      width:120,
-      height:120
-    });
+    new QRCode(popup,{text:addresses[i],width:120,height:120});
 
     const addr=document.createElement("div");
     addr.className="address-text";
@@ -135,63 +133,72 @@ chars.forEach((el,i)=>{
   });
 
   el.addEventListener("mouseleave",()=>{
+    hideTimeout=setTimeout(()=>{
+      popup.style.display="none";
+    },200);
+  });
+
+  popup.addEventListener("mouseenter",()=>{
+    clearTimeout(hideTimeout);
+  });
+
+  popup.addEventListener("mouseleave",()=>{
     popup.style.display="none";
   });
 });
 
 function saveState(){
-  localStorage.setItem("balances",JSON.stringify(prevBalances));
-  localStorage.setItem("chars",JSON.stringify(currentChars));
+  localStorage.setItem("baseline",JSON.stringify(baseline));
+  localStorage.setItem("unlocked",JSON.stringify(unlocked));
 }
 
-function changeChar(i){
-  currentChars[i]=["w","2","x"][i];
-  chars[i].childNodes[0].nodeValue=currentChars[i];
-  chars[i].classList.add("changed");
-  saveState();
+function unlock(i){
+  if(!unlocked[i]){
+    unlocked[i]=true;
+    chars[i].childNodes[0].nodeValue=["w","2","x"][i];
+    chars[i].classList.add("changed");
+    saveState();
+  }
 }
 
-async function updateBalances(){
+async function fetchBalance(addr){
+  const res=await fetch(backendUrl+addr);
+  const data=await res.json();
+  return data.balance/1000000;
+}
 
+async function checkBalances(){
+
+  // jeśli baseline nie istnieje — ustawiamy stan początkowy
+  if(!baseline){
+    baseline=[];
+    for(let i=0;i<3;i++){
+      baseline[i]=await fetchBalance(addresses[i]);
+    }
+    baseline[3]=await fetchBalance(fourthAddress);
+    saveState();
+    return;
+  }
+
+  // sprawdzamy 3 główne
   for(let i=0;i<3;i++){
-    try{
-      const res=await fetch(backendUrl+addresses[i]);
-      const data=await res.json();
-      const balance=data.balance/1000000;
-
-      if(currentChars[i]==="?" && balance-prevBalances[i]>=1){
-        changeChar(i);
-      }
-
-      prevBalances[i]=balance;
-
-    }catch(e){
-      console.log("Błąd:",e);
+    const bal=await fetchBalance(addresses[i]);
+    if(bal - baseline[i] >=1){
+      unlock(i);
     }
   }
 
-  try{
-    const res=await fetch(backendUrl+fourthAddress);
-    const data=await res.json();
-    const balance=data.balance/1000000;
-
-    if(balance!==prevBalances[3]){
-      for(let i=0;i<3;i++){
-        if(currentChars[i]==="?") changeChar(i);
-      }
+  // sprawdzamy 4 adres
+  const bal4=await fetchBalance(fourthAddress);
+  if(bal4 !== baseline[3]){
+    for(let i=0;i<3;i++){
+      unlock(i);
     }
-
-    prevBalances[3]=balance;
-
-  }catch(e){
-    console.log("Błąd 4:",e);
   }
-
-  saveState();
 }
 
-setInterval(updateBalances,30000);
-updateBalances();
+setInterval(checkBalances,30000);
+checkBalances();
 </script>
 
 </body>
