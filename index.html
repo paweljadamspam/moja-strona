@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Znaki Solana FINAL</title>
+<title>System Znaki</title>
 
 <style>
 body{
   margin:0;
-  font-family:Arial,sans-serif;
+  font-family:Arial;
   background:#0f172a;
   color:#fff;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
   height:100vh;
@@ -24,45 +25,27 @@ body{
 }
 
 .char{
-  position:relative;
-  cursor:pointer;
-  transition:transform .3s,color .3s;
+  transition:transform .6s,color .6s;
 }
 
-.char.changed{
-  transform:scale(1.3);
+.changed{
   color:#22c55e;
+  transform:scale(1.3);
 }
 
-.popup{
-  position:absolute;
-  top:90px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#1e293b;
-  padding:15px;
-  border-radius:12px;
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  width:220px;
+.flip{
+  animation:flip .6s ease;
 }
 
-.popup button{
-  margin-top:10px;
-  padding:6px 10px;
-  border:none;
-  border-radius:6px;
-  background:#6366f1;
-  color:white;
-  cursor:pointer;
+@keyframes flip{
+  0%{transform:rotateX(0)}
+  50%{transform:rotateX(90deg)}
+  100%{transform:rotateX(0)}
 }
 
-.address-text{
-  font-size:11px;
-  margin-top:8px;
-  word-break:break-all;
-  text-align:center;
+.stats{
+  margin-top:30px;
+  font-size:16px;
   color:#cbd5e1;
 }
 </style>
@@ -70,135 +53,52 @@ body{
 <body>
 
 <div class="container">
-  <div class="char" data-i="0">?
-    <div class="popup"></div>
-  </div>
-  <div class="char" data-i="1">?
-    <div class="popup"></div>
-  </div>
-  <div class="char" data-i="2">?
-    <div class="popup"></div>
-  </div>
+  <div class="char">?</div>
+  <div class="char">?</div>
+  <div class="char">?</div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<div class="stats" id="stats"></div>
 
 <script>
-const addresses=[
-"BAQL4y1J8hae4UM9asN8a8RtjZsjShG8XXErEFQN9YDu",
-"58NojM9qwc7F38oYQAZwDUkArioCbSburkZTBJqLWQd7",
-"FZK29Xj757Z5qPD78gRm7kiZYqyt6szKrSEwdrxwjmPm"
-];
-
-const fourthAddress="H2YZvBUUTnU8bVFR5soC7YaApAeBV5vEaPisrrtzxEvH";
-const backendUrl="https://interaktywny-znaki.onrender.com/usdc/";
-
-let baseline = JSON.parse(localStorage.getItem("baseline"));
-let unlocked = JSON.parse(localStorage.getItem("unlocked")) || [false,false,false];
-
+const backend="https://interaktywny-znakipro.onrender.com/state"; // <-- TU wstaw swój URL
 const chars=document.querySelectorAll(".char");
+const stats=document.getElementById("stats");
 
-// ustaw zapisane znaki
-chars.forEach((el,i)=>{
-  if(unlocked[i]){
-    el.childNodes[0].nodeValue=["w","2","x"][i];
-    el.classList.add("changed");
-  }
-});
+let currentState=[false,false,false];
 
-// popup stabilny
-chars.forEach((el,i)=>{
-  const popup=el.querySelector(".popup");
-  let hideTimeout;
+function updateUI(data){
 
-  el.addEventListener("mouseenter",()=>{
-    if(unlocked[i]) return;
-
-    clearTimeout(hideTimeout);
-    popup.innerHTML="";
-
-    new QRCode(popup,{text:addresses[i],width:120,height:120});
-
-    const addr=document.createElement("div");
-    addr.className="address-text";
-    addr.textContent=addresses[i];
-    popup.appendChild(addr);
-
-    const btn=document.createElement("button");
-    btn.textContent="Kopiuj adres";
-    btn.onclick=()=>navigator.clipboard.writeText(addresses[i]);
-    popup.appendChild(btn);
-
-    popup.style.display="flex";
-  });
-
-  el.addEventListener("mouseleave",()=>{
-    hideTimeout=setTimeout(()=>{
-      popup.style.display="none";
-    },200);
-  });
-
-  popup.addEventListener("mouseenter",()=>{
-    clearTimeout(hideTimeout);
-  });
-
-  popup.addEventListener("mouseleave",()=>{
-    popup.style.display="none";
-  });
-});
-
-function saveState(){
-  localStorage.setItem("baseline",JSON.stringify(baseline));
-  localStorage.setItem("unlocked",JSON.stringify(unlocked));
-}
-
-function unlock(i){
-  if(!unlocked[i]){
-    unlocked[i]=true;
-    chars[i].childNodes[0].nodeValue=["w","2","x"][i];
-    chars[i].classList.add("changed");
-    saveState();
-  }
-}
-
-async function fetchBalance(addr){
-  const res=await fetch(backendUrl+addr);
-  const data=await res.json();
-  return data.balance/1000000;
-}
-
-async function checkBalances(){
-
-  // jeśli baseline nie istnieje — ustawiamy stan początkowy
-  if(!baseline){
-    baseline=[];
-    for(let i=0;i<3;i++){
-      baseline[i]=await fetchBalance(addresses[i]);
+  data.unlocked.forEach((val,i)=>{
+    if(val && !currentState[i]){
+      chars[i].classList.add("flip");
+      setTimeout(()=>{
+        chars[i].textContent=["w","2","x"][i];
+        chars[i].classList.add("changed");
+        chars[i].classList.remove("flip");
+      },300);
     }
-    baseline[3]=await fetchBalance(fourthAddress);
-    saveState();
-    return;
-  }
+  });
 
-  // sprawdzamy 3 główne
-  for(let i=0;i<3;i++){
-    const bal=await fetchBalance(addresses[i]);
-    if(bal - baseline[i] >=1){
-      unlock(i);
-    }
-  }
+  currentState=data.unlocked;
 
-  // sprawdzamy 4 adres
-  const bal4=await fetchBalance(fourthAddress);
-  if(bal4 !== baseline[3]){
-    for(let i=0;i<3;i++){
-      unlock(i);
-    }
+  stats.innerText=
+    "Wpłynęło USDC: " +
+    data.totalReceived.map(v=>v.toFixed(2)).join(" | ");
+}
+
+async function fetchState(){
+  try{
+    const res=await fetch(backend);
+    const data=await res.json();
+    updateUI(data);
+  }catch(e){
+    console.log("Błąd backendu");
   }
 }
 
-setInterval(checkBalances,30000);
-checkBalances();
+setInterval(fetchState,5000);
+fetchState();
 </script>
 
 </body>
